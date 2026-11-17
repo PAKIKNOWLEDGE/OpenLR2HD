@@ -1215,7 +1215,15 @@ int ReadOpenLr2Config(game* g, const char* filepath) {
 
 	ReadXml_Int("config", "system", "fullscreenfilter", 0, &g->config.system.fullscreenfilter, hXml);
 	ReadXml_PositiveIntAsBool("config", "system", "fullscreenfitstretch", false, &g->config.system.fullscreenfitstretch, hXml);
-	ReadXml_Int("config", "system", "resolution", 0, &g->config.system.resolution, hXml);
+	// LR2HD installs have neither openlr2-config.xml nor a <resolution> key, and their
+	// skins are authored in 1280x720 space, so default them to HD instead of SD.
+	int resolution = -1;
+	ReadXml_Int("config", "system", "resolution", -1, &resolution, hXml);
+	if (resolution < 0) {
+		std::error_code ec;
+		resolution = std::filesystem::exists("LR2files/Config/config.xmh", ec) ? 1 : 0;
+	}
+	g->config.system.resolution = resolution;
 	ReadXml_Int("config", "system", "screenmode", 0, &g->config.system.screenmode, hXml);
 	if (g->config.system.screenmode < 0 || g->config.system.screenmode > 2)
 		g->config.system.screenmode = 0; // out-of-range

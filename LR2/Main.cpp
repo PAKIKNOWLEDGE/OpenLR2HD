@@ -288,7 +288,12 @@ int main(int argc, char** argv) {
 	copy_if_not_exists("LR2files/Config/midi_def.xml", "LR2files/Config/midi.xml");
 	ErrorLogAdd("コンフィグを読み込みます…");
 
-	if (!ReadConfig(&gs, fs::make_preferred("LR2files/Config/config.xml").data()) && gs.is_starter == false) {
+	const auto configXml = fs::make_preferred("LR2files/Config/config.xml");
+	const auto configXmh = fs::make_preferred("LR2files/Config/config.xmh");
+	std::error_code configEc;
+	// LR2HD ships config.xmh in place of config.xml
+	const char* configPath = std::filesystem::exists(configXml.data(), configEc) ? configXml.data() : configXmh.data();
+	if (!ReadConfig(&gs, configPath) && gs.is_starter == false) {
 		MessageBoxA(NULL, "Failed to read main config", "エラー", 0);
 		return -1;
 	}
