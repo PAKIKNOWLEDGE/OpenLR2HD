@@ -3,6 +3,14 @@
 Rewritten source code of BMS player Lunatic Rave 2. Project started in January 2021.
 Original code accessible at [LR2Beta3-v100201](https://github.com/GOMazk/OpenLR2/tree/LR2Beta3-v100201)
 
+## This fork: OpenLR2HD
+
+Fork of [GOMazk/OpenLR2](https://github.com/GOMazk/OpenLR2) that makes HD skins usable in borderless full screen, which is the usual setup for 1280×720 and 1920×1080 skins. Two input bugs are fixed here.
+
+**Borderless full screen froze the keyboard.** Switching into `screenmode = 2` rebuilds the window, and Windows does not hand the foreground to the replacement window. A window that is not foreground cannot acquire the DirectInput keyboard, so every key read failed and the game stopped reacting to input. The game now claims the foreground once the new mode is in place, re-acquires the input devices when an activation message arrives for a window that already believed it was active, and reports no keys instead of the previous frame's keys when the device cannot be read.
+
+**Alt got latched down.** The system-key hook swallowed the Alt key-up event, so Alt stayed down for the whole desktop. Every later keystroke then arrived as a system-key combination and the game never received a plain key again. Alt+Tab is passed through now as well, so task switching works.
+
 ## Open source?
 
 After the closure of LR2IR, the project has been made public.
@@ -47,6 +55,19 @@ https://web.archive.org/web/20190802100906/http://www.dream-pro.info/~lavalse/LR
 - Add the corresponding #RESOLUTION under #INFORMATION in your .lr2skin files for each of the game scenes (music select, decide, play, result, course result...) Refer to the image above as an example.
 
 - You can also set default resolution in "LR2files/Config/openlr2-config.xml" (0:SD 1:HD 2:FHD). Every option in that file is listed in [openlr2-config.md](docs/openlr2-config.md).
+
+## Recommended settings
+
+These live in `LR2files/Config/openlr2-config.xml`. Close the game before editing it, because the game writes the file again when it quits.
+
+| Option | Value | Why |
+| --- | --- | --- |
+| `resolution` | `1` (1280×720) or `2` (1920×1080) | Fallback size for skins that do not declare `#RESOLUTION`. Matching your skin set avoids scaling the picture. |
+| `screenmode` | `2` | Borderless full screen. F4 and Alt+Tab stay safe and the desktop keeps its own refresh rate. `0` is exclusive full screen, `1` is a window. |
+| `fullscreenfilter` | `0` smooth, `1` sharp | `1` keeps pixel art crisp when the picture is scaled. `2` is CRT. |
+| `fullscreenfitstretch` | `0` | Keeps the picture's aspect ratio instead of stretching it to fill the monitor. |
+
+A skin that sets its own `#RESOLUTION` uses that size on that screen; `resolution` is only the fallback. The `screenmode` in `config.xml` is ignored, OpenLR2 reads it from `openlr2-config.xml`.
 
 ## Third party tools
 - Launcher (partial support OpenLR2)
