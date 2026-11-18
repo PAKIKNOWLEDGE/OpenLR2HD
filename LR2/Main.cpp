@@ -254,11 +254,11 @@ static void ApplyScreenMode(int screenmode) {
 				g_exclusiveDisplayIndex = displayInfoIndex;
 			}
 			ScreenDiag("  case0 SetFullScreenResolutionMode(DESKTOP) enter");
-			SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
-			ScreenDiag("  case0 SetFullScreenResolutionMode(DESKTOP) return");
+			const int fsModeRet0 = SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
+			ScreenDiag("  case0 SetFullScreenResolutionMode(DESKTOP) ret=%d", fsModeRet0);
 			ScreenDiag("  case0 ChangeWindowMode(0) enter");
-			ChangeWindowMode(0);
-			ScreenDiag("  case0 ChangeWindowMode(0) return windowModeFlag=%d", GetWindowModeFlag());
+			const int changeRet0 = ChangeWindowMode(0);
+			ScreenDiag("  case0 ChangeWindowMode(0) ret=%d windowModeFlag=%d", changeRet0, GetWindowModeFlag());
 			break;
 		}
 		case 1:
@@ -267,8 +267,8 @@ static void ApplyScreenMode(int screenmode) {
 			ScreenDiag("  case1 displayIndex=%d", displayIndex);
 			g_exclusiveDisplayIndex = -1;
 			ScreenDiag("  case1 ChangeWindowMode(1) enter");
-			ChangeWindowMode(1);
-			ScreenDiag("  case1 ChangeWindowMode(1) return windowModeFlag=%d", GetWindowModeFlag());
+			const int changeRet1 = ChangeWindowMode(1);
+			ScreenDiag("  case1 ChangeWindowMode(1) ret=%d windowModeFlag=%d", changeRet1, GetWindowModeFlag());
 			const int restoredDisplayIndex = FindMonitorThatContainsWindowCenter();
 			ScreenDiag("  case1 restoredDisplayIndex=%d", restoredDisplayIndex);
 			if (displayIndex >= 0 && restoredDisplayIndex >= 0 && displayIndex != restoredDisplayIndex) {
@@ -283,11 +283,11 @@ static void ApplyScreenMode(int screenmode) {
 			ScreenDiag("  case2 displayIndex=%d", displayIndex);
 			if (displayIndex >= 0) SetUseDisplayIndex(displayIndex);
 			ScreenDiag("  case2 SetFullScreenResolutionMode(BORDERLESS_WINDOW) enter");
-			SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
-			ScreenDiag("  case2 SetFullScreenResolutionMode(BORDERLESS_WINDOW) return");
+			const int fsModeRet2 = SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
+			ScreenDiag("  case2 SetFullScreenResolutionMode(BORDERLESS_WINDOW) ret=%d", fsModeRet2);
 			ScreenDiag("  case2 ChangeWindowMode(0) enter");
-			ChangeWindowMode(0);
-			ScreenDiag("  case2 ChangeWindowMode(0) return windowModeFlag=%d", GetWindowModeFlag());
+			const int changeRet2 = ChangeWindowMode(0);
+			ScreenDiag("  case2 ChangeWindowMode(0) ret=%d windowModeFlag=%d", changeRet2, GetWindowModeFlag());
 			break;
 		}
 	}
@@ -2657,8 +2657,8 @@ int main(int argc, char** argv) {
 				gs.skstruct.ImageFonts[i].filepath[0] = 0;
 			}
 			ScreenDiag("screenModeChange: mode=%d before SetGraphMode windowModeFlag=%d", gs.config.system.screenmode, GetWindowModeFlag());
-			SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
-			ScreenDiag("screenModeChange: SetGraphMode returned, refreshRate=%d skin=%dx%d", GetRefreshRate(), skinSizeX, skinSizeY);
+			const int graphModeRet = SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate());
+			ScreenDiag("screenModeChange: SetGraphMode ret=%d refreshRate=%d skin=%dx%d", graphModeRet, GetRefreshRate(), skinSizeX, skinSizeY);
 			SetWaitVSyncFlag(0); //VSYNC
 			ScreenDiag("screenModeChange: ApplyScreenMode enter");
 			ApplyScreenMode(gs.config.system.screenmode);
@@ -2672,8 +2672,7 @@ int main(int argc, char** argv) {
 				GetWindowPosition(&wx, &wy);
 				GetWindowSize(&ww, &wh);
 				ScreenDiag("screenModeChange: graph mode reapplied pos=(%d,%d) size=%dx%d windowModeFlag=%d",
-					wx, wy, ww, wh, GetWindowModeFlag());
-			}
+					wx, wy, ww, wh, GetWindowModeFlag());			}
 			SetWaitVSyncFlag(0); //VSYNC
 			SetDrawScreen(DX_SCREEN_BACK);
 			for (int i = 0; i < 900; i++) {
