@@ -991,6 +991,11 @@ int main(int argc, char** argv) {
 
 	while (true) { //main loop
 		if (ProcessMessage() || !gs.procSelecter || gs.auto2avi) break;
+		static int diagFrame = 0;
+		if (++diagFrame % 60 == 0) {
+			ScreenDiag("frame %d procSelecter=%d windowModeFlag=%d skin=%dx%d",
+				diagFrame, gs.procSelecter, GetWindowModeFlag(), skinSizeX, skinSizeY);
+		}
 
 		if (GetWindowModeFlag()) { // windowed
 			int wSizeY;
@@ -2590,7 +2595,10 @@ int main(int argc, char** argv) {
 
 			if (GetWaitVSyncFlag()) SetWaitVSyncFlag(0); //TEST
 
+			static int diagFlip = 0;
+			if (++diagFlip % 60 == 0) ScreenDiag("present %d before ScreenFlip", diagFlip);
 			ScreenFlip(); //DXlib Vsync works on here
+			if (diagFlip % 60 == 0) ScreenDiag("present %d after ScreenFlip", diagFlip);
 			GetTimeWrap();
 
 			GetTimeWrap();
