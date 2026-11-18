@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdarg>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -187,27 +189,88 @@ static void MoveWindowToDisplay(int targetDisplayIndex, int sourceDisplayIndex) 
 	SetWindowPosition(targetX + wx - sourceX, targetY + wy - sourceY);
 }
 
+// Temporary diagnostics for the fullscreen hang. Each line is flushed and closed
+// immediately so the last one survives a hang, where DxLib's own buffered log
+// would not reach disk. Remove once the cause is identified.
+static void ScreenDiag(const char* fmt, ...) {
+	char buf[1024]{};
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	FILE* fp = nullptr;
+#ifdef _MSC_VER
+	if (fopen_s(&fp, "fullscreen-diag.txt", "a") != 0) return;
+#else
+	fp = fopen("fullscreen-diag.txt", "a");
+#endif
+	if (fp == nullptr) return;
+	fputs(buf, fp);
+	fputc('\n', fp);
+	fflush(fp);
+	fclose(fp);
+}
+
+static void DumpDisplayModes(const char* tag) {
+	const int displayCount = GetDisplayNum();
+	ScreenDiag("[%s] GetDisplayNum=%d refreshRate=%d windowModeFlag=%d",
+		tag, displayCount, GetRefreshRate(), GetWindowModeFlag());
+	for (int i = 0; i < displayCount; i++) {
+		int dx = 0, dy = 0, sx = 0, sy = 0, primary = 0, rate = 0;
+		const int infoResult = GetDisplayInfo(i, &dx, &dy, &sx, &sy, &primary, &rate);
+		ScreenDiag("[%s] display[%d] GetDisplayInfo=%d rect=(%d,%d) size=%dx%d primary=%d rate=%d",
+			tag, i, infoResult, dx, dy, sx, sy, primary, rate);
+
+		const int modeCount = GetDisplayModeNum(i);
+		ScreenDiag("[%s] display[%d] GetDisplayModeNum=%d", tag, i, modeCount);
+		int has720 = 0, has720at144 = 0, has1080at144 = 0;
+		for (int m = 0; m < modeCount; m++) {
+			const DISPLAYMODEDATA mode = GetDisplayMode(m, i);
+			if (mode.Width == 1280 && mode.Height == 720) {
+				has720++;
+				if (mode.RefreshRate == 144) has720at144++;
+			}
+			if (mode.Width == 1920 && mode.Height == 1080 && mode.RefreshRate == 144) has1080at144++;
+			ScreenDiag("[%s] display[%d] mode[%d]=%dx%d %dbit %dHz",
+				tag, i, m, mode.Width, mode.Height, mode.ColorBitDepth, mode.RefreshRate);
+		}
+		ScreenDiag("[%s] display[%d] has1280x720=%d has1280x720at144=%d has1920x1080at144=%d",
+			tag, i, has720, has720at144, has1080at144);
+	}
+}
+
 static void ApplyScreenMode(int screenmode) {
 	// DxLib picks exclusive vs borderless through SetFullScreenResolutionMode;
 	// ChangeWindowMode only toggles windowed(1)/fullscreen(0).
+	ScreenDiag("ApplyScreenMode(%d) enter: windowModeFlag=%d windowPos/Size pending", screenmode, GetWindowModeFlag());
 	switch (screenmode) {
 		case 0: {
 			const int displayInfoIndex = FindMonitorThatContainsWindowCenter();
 			const int useDisplayIndex = GetUseDisplayIndex(displayInfoIndex);
+			ScreenDiag("  case0 displayInfoIndex=%d useDisplayIndex=%d", displayInfoIndex, useDisplayIndex);
 			if (useDisplayIndex >= 0) {
 				SetUseDisplayIndex(useDisplayIndex);
 				g_exclusiveDisplayIndex = displayInfoIndex;
 			}
+			ScreenDiag("  case0 SetFullScreenResolutionMode(DESKTOP) enter");
 			SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_DESKTOP);
+			ScreenDiag("  case0 SetFullScreenResolutionMode(DESKTOP) return");
+			ScreenDiag("  case0 ChangeWindowMode(0) enter");
 			ChangeWindowMode(0);
+			ScreenDiag("  case0 ChangeWindowMode(0) return windowModeFlag=%d", GetWindowModeFlag());
 			break;
 		}
 		case 1:
 		{
 			const int displayIndex = FindMonitorThatContainsWindowCenter();
+			ScreenDiag("  case1 displayIndex=%d", displayIndex);
 			g_exclusiveDisplayIndex = -1;
+			ScreenDiag("  case1 ChangeWindowMode(1) enter");
 			ChangeWindowMode(1);
+			ScreenDiag("  case1 ChangeWindowMode(1) return windowModeFlag=%d", GetWindowModeFlag());
 			const int restoredDisplayIndex = FindMonitorThatContainsWindowCenter();
+			ScreenDiag("  case1 restoredDisplayIndex=%d", restoredDisplayIndex);
 			if (displayIndex >= 0 && restoredDisplayIndex >= 0 && displayIndex != restoredDisplayIndex) {
 				MoveWindowToDisplay(displayIndex, restoredDisplayIndex);
 			}
@@ -217,12 +280,18 @@ static void ApplyScreenMode(int screenmode) {
 		default: {
 			g_exclusiveDisplayIndex = -1;
 			const int displayIndex = FindMonitorThatContainsWindowCenter();
+			ScreenDiag("  case2 displayIndex=%d", displayIndex);
 			if (displayIndex >= 0) SetUseDisplayIndex(displayIndex);
+			ScreenDiag("  case2 SetFullScreenResolutionMode(BORDERLESS_WINDOW) enter");
 			SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
+			ScreenDiag("  case2 SetFullScreenResolutionMode(BORDERLESS_WINDOW) return");
+			ScreenDiag("  case2 ChangeWindowMode(0) enter");
 			ChangeWindowMode(0);
+			ScreenDiag("  case2 ChangeWindowMode(0) return windowModeFlag=%d", GetWindowModeFlag());
 			break;
 		}
 	}
+	ScreenDiag("ApplyScreenMode(%d) exit: windowModeFlag=%d", screenmode, GetWindowModeFlag());
 }
 
 static double GetFrameLimiterRefreshRate() {
@@ -536,6 +605,10 @@ int main(int argc, char** argv) {
 	SetUseDisplayIndex(-1);
 	SetFullScreenScalingMode(gs.config.system.fullscreenfilter, gs.config.system.fullscreenfitstretch ? 1 : 0);
 	if (DxLib_Init() == -1) return 0;
+	ScreenDiag("DxLib_Init ok: config resolution=%d screenmode=%d disablesystemkey=%d fullscreenfilter=%d fullscreenfitstretch=%d",
+		gs.config.system.resolution, gs.config.system.screenmode, gs.config.system.disablesystemkey,
+		gs.config.system.fullscreenfilter, gs.config.system.fullscreenfitstretch ? 1 : 0);
+	DumpDisplayModes("post-init");
 	if constexpr (is_linux()) { SetMainWindowText(openlr2::versionName); }
 	ChangeFont("", 0);
 	SetLogFontSize(14); //DXLIBVER: change this for further dxlib version
@@ -2561,6 +2634,7 @@ int main(int argc, char** argv) {
 		}
 		if (gs.KeyInput.inputID[KEY_INPUT_F4] == 1 && gs.procSelecter == 2) {
 			LoopInRange(0, 2, 1, &gs.config.system.screenmode); // 0=desktop 1=windowed 2=borderless
+			ScreenDiag("F4: new screenmode=%d windowModeFlag=%d", gs.config.system.screenmode, GetWindowModeFlag());
 			gs.is_clicked_screenModeChange = 1;
 		}
 		if (gs.sSelect.is_filter_changed) {
@@ -2574,9 +2648,13 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < 10; i++) {
 				gs.skstruct.ImageFonts[i].filepath[0] = 0;
 			}
+			ScreenDiag("screenModeChange: mode=%d before SetGraphMode windowModeFlag=%d", gs.config.system.screenmode, GetWindowModeFlag());
 			SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
+			ScreenDiag("screenModeChange: SetGraphMode returned, refreshRate=%d skin=%dx%d", GetRefreshRate(), skinSizeX, skinSizeY);
 			SetWaitVSyncFlag(0); //VSYNC
+			ScreenDiag("screenModeChange: ApplyScreenMode enter");
 			ApplyScreenMode(gs.config.system.screenmode);
+			ScreenDiag("screenModeChange: ApplyScreenMode returned");
 			SetWaitVSyncFlag(0); //VSYNC
 			SetDrawScreen(DX_SCREEN_BACK);
 			for (int i = 0; i < 900; i++) {
@@ -2598,6 +2676,7 @@ int main(int argc, char** argv) {
 			SetObjectStrings_SongSelect(&gs);
 		}
 		else if(GetWindowModeFlag() != (gs.config.system.screenmode == 1 ? 1 : 0)){ // 0 and 2 are both fullscreen
+			ScreenDiag("reconcile: config screenmode=%d but windowModeFlag=%d, resync", gs.config.system.screenmode, GetWindowModeFlag());
 			for (int i = 0; i < 200; i++) {
 				gs.skstruct.caption[i].fillzero();
 			}
@@ -2605,8 +2684,10 @@ int main(int argc, char** argv) {
 				gs.skstruct.ImageFonts[i].filepath[0] = 0;
 			}
 			SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate()); //redundant?
+			ScreenDiag("reconcile: SetGraphMode returned windowModeFlag=%d", GetWindowModeFlag());
 			SetDrawScreen(DX_SCREEN_BACK);
 			LoadSceneG(&gs, &gs.skstruct, SKINTYPE_SELECT);
+			ScreenDiag("reconcile: LoadSceneG returned");
 			SetWaitVSyncFlag(0); //VSYNC
 			SetMouseDispFlag(0);
 			gs.is_clicked_screenModeChange = 0;
