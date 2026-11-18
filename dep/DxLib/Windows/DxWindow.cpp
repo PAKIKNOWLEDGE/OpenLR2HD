@@ -5267,9 +5267,8 @@ LRESULT CALLBACK LowLevelKeyboardProc (INT nCode, WPARAM wParam, LPARAM lParam)
 				if (pkbhs->vkCode == VK_ESCAPE && bControlKeyDown)
 					return 1;
 
-				// Alt + Tab を無効にします
-				if (pkbhs->vkCode == VK_TAB && ( pkbhs->flags & LLKHF_ALTDOWN ) )
-					return 1;
+				// Alt + Tab is passed through on purpose: task switching has to stay usable
+				// and swallowing it here also broke the window's ability to regain focus.
 
 				// Alt + Esc を無効にします
 				if (pkbhs->vkCode == VK_ESCAPE && ( pkbhs->flags & LLKHF_ALTDOWN ) )
@@ -5279,9 +5278,10 @@ LRESULT CALLBACK LowLevelKeyboardProc (INT nCode, WPARAM wParam, LPARAM lParam)
 				if (pkbhs->vkCode == VK_F4 && ( pkbhs->flags & LLKHF_ALTDOWN ) )
 					return 1 ;
 
-				// Alt up を無効にします
-				if ((pkbhs->vkCode == VK_LMENU || pkbhs->vkCode == VK_LMENU ) && ( pkbhs->flags & LLKHF_UP ) )
-					return 1 ;
+				// The Alt key-up event used to be swallowed here, with VK_LMENU tested
+				// twice where VK_LMENU/VK_RMENU was meant. Swallowing the release latches
+				// Alt down for the whole desktop, so every later keystroke arrives as a
+				// system-key combination and the game's input never recovers.
 
 				break;
 			}
