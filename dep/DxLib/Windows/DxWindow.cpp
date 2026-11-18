@@ -10903,6 +10903,13 @@ int WM_ACTIVATEProcess( WPARAM wParam, LPARAM /*lParam*/, int APPMes, int Dummy 
 	// アクティブ情報が今までと同じ場合は何もしない
 	if( WinData.ActiveFlag == ActiveFlag )
 	{
+		// An activation message still means this window is foreground now, so re-acquire
+		// the DirectInput devices even when the flag already claimed active: the flag is
+		// force-set when the window is rebuilt, and skipping the re-acquire here used to
+		// leave the keyboard unacquired until the next real deactivate/activate cycle.
+#ifndef DX_NON_INPUT
+		if( ActiveFlag == TRUE ) RefreshInputDeviceAcquireState() ;
+#endif // DX_NON_INPUT
 		// WM_ACTIVATEProcess 実行中フラグを倒す
 		WinData.WM_ACTIVATE_ProcessFlag = FALSE ;
 		return 0 ;

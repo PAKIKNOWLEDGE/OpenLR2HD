@@ -240,6 +240,28 @@ static void DumpDisplayModes(const char* tag) {
 	}
 }
 
+// A borderless window is rebuilt out of the windowed one, and Windows does not hand the
+// foreground to the replacement. A window that is not foreground cannot acquire the
+// DirectInput keyboard, so every later key read fails. Ask for the foreground once the
+// new mode is in place.
+static void ForceWindowForeground() {
+#ifdef _WIN32
+	const HWND mainWindow = GetMainWindowHandle();
+	if (mainWindow == nullptr) return;
+	const HWND foreground = GetForegroundWindow();
+	if (foreground == mainWindow) return;
+	const DWORD foregroundThread = foreground != nullptr ? GetWindowThreadProcessId(foreground, nullptr) : 0;
+	const DWORD ownThread = GetCurrentThreadId();
+	const bool attached = foregroundThread != 0 && foregroundThread != ownThread
+		&& AttachThreadInput(foregroundThread, ownThread, TRUE) != 0;
+	BringWindowToTop(mainWindow);
+	SetForegroundWindow(mainWindow);
+	if (attached) AttachThreadInput(foregroundThread, ownThread, FALSE);
+	ScreenDiag("ForceWindowForeground: from=%p now=%p main=%p",
+		static_cast<void*>(foreground), static_cast<void*>(GetForegroundWindow()), static_cast<void*>(mainWindow));
+#endif
+}
+
 static void ApplyScreenMode(int screenmode) {
 	// DxLib picks exclusive vs borderless through SetFullScreenResolutionMode;
 	// ChangeWindowMode only toggles windowed(1)/fullscreen(0).
@@ -300,6 +322,7 @@ static void ApplyScreenMode(int screenmode) {
 			break;
 		}
 	}
+	if (screenmode != 1) ForceWindowForeground();
 	ScreenDiag("ApplyScreenMode(%d) exit: windowModeFlag=%d", screenmode, GetWindowModeFlag());
 }
 
