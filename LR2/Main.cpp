@@ -244,6 +244,11 @@ static void ApplyScreenMode(int screenmode) {
 	// DxLib picks exclusive vs borderless through SetFullScreenResolutionMode;
 	// ChangeWindowMode only toggles windowed(1)/fullscreen(0).
 	ScreenDiag("ApplyScreenMode(%d) enter: windowModeFlag=%d windowPos/Size pending", screenmode, GetWindowModeFlag());
+	{
+		int fsModeRequested = -1, fsModeUsed = -1;
+		GetFullScreenResolutionMode(&fsModeRequested, &fsModeUsed);
+		ScreenDiag("  fullscreenResolutionMode before: requested=%d used=%d", fsModeRequested, fsModeUsed);
+	}
 	switch (screenmode) {
 		case 0: {
 			const int displayInfoIndex = FindMonitorThatContainsWindowCenter();
@@ -266,6 +271,10 @@ static void ApplyScreenMode(int screenmode) {
 			const int displayIndex = FindMonitorThatContainsWindowCenter();
 			ScreenDiag("  case1 displayIndex=%d", displayIndex);
 			g_exclusiveDisplayIndex = -1;
+			// Restore the mode windowed startup leaves in place; entering fullscreen
+			// with DESKTOP or BORDERLESS left it latched for the next windowed rebuild.
+			const int fsModeReset1 = SetFullScreenResolutionMode(DX_FSRESOLUTIONMODE_BORDERLESS_WINDOW);
+			ScreenDiag("  case1 SetFullScreenResolutionMode(BORDERLESS_WINDOW) ret=%d", fsModeReset1);
 			ScreenDiag("  case1 ChangeWindowMode(1) enter");
 			const int changeRet1 = ChangeWindowMode(1);
 			ScreenDiag("  case1 ChangeWindowMode(1) ret=%d windowModeFlag=%d", changeRet1, GetWindowModeFlag());
