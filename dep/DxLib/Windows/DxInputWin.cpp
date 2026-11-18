@@ -10,6 +10,7 @@
 #define DX_MAKE
 
 #include "../DxCompileConfig.h"
+#include <stdio.h>
 #include "../DxBaseFunc.h"
 
 #ifndef DX_NON_INPUT
@@ -2379,12 +2380,39 @@ extern int TerminateJoypad_PF( void )
 	return 0 ;
 }
 
+// diagnostic: report which keyboard path is live and why the DirectInput read may fail
+static void KeyboardDiagLog( int Branch, int GetStateHr, int AcquireHr )
+{
+	static DWORD LastTime = 0 ;
+	DWORD Now = ( DWORD )WinAPIData.Win32Func.timeGetTimeFunc() ;
+	int Pressed = 0, i ;
+	FILE *fp ;
+
+	if( LastTime != 0 && Now - LastTime < 1000 ) return ;
+	LastTime = Now ;
+
+	for( i = 0 ; i < 256 ; i ++ ) if( InputSysData.KeyInputBuf[ i ] != 0 ) Pressed ++ ;
+
+#ifdef _MSC_VER
+	fopen_s( &fp, "input-diag.txt", "a" ) ;
+#else
+	fp = fopen( "input-diag.txt", "a" ) ;
+#endif
+	if( fp == NULL ) return ;
+	fprintf( fp, "input: branch=%d devNull=%d active=%d getstate=%d acquire=%d pressed=%d\n",
+		Branch, InputSysData.PF.KeyboardDeviceObject == NULL ? 1 : 0,
+		WinData.ActiveFlag, GetStateHr, AcquireHr, Pressed ) ;
+	fflush( fp ) ;
+	fclose( fp ) ;
+}
+
 // 入力状態の更新の環境依存処理
 extern int UpdateKeyboardInputState_PF( int UseProcessMessage )
 {
 	unsigned char KeyBuffer[256] ;
 	int Time, hr, i ;
 	int Result = 0 ;
+	int DiagBranch = -1, DiagGetState = 0x7fffffff, DiagAcquire = 0x7fffffff ;
 
 	SETUP_WIN_API
 
@@ -2412,6 +2440,7 @@ extern int UpdateKeyboardInputState_PF( int UseProcessMessage )
 		}
 
 		// 標準ＡＰＩで入力状態を取得する
+		DiagBranch = 0 ;
 		WinAPIData.Win32Func.GetKeyboardStateFunc( KeyBuffer ) ;
 		_MEMSET( &InputSysData.KeyInputBuf, 0, sizeof( InputSysData.KeyInputBuf ) ) ;
 		for( i = 0 ; __KeyMap[i][0] != 0xffff ; i ++ )
@@ -2449,11 +2478,14 @@ extern int UpdateKeyboardInputState_PF( int UseProcessMessage )
 		}
 
 		// ステータス取得、ロストしていたら再取得
+		DiagBranch = 1 ;
 		hr = InputSysData.PF.KeyboardDeviceObject->GetDeviceState( sizeof( InputSysData.KeyInputBuf ) , ( LPVOID )InputSysData.KeyInputBuf ) ;
+		DiagGetState = hr ;
 //		if( hr == DIERR_INPUTLOST )
 		if( hr != D_DI_OK )
 		{
-			if( InputSysData.PF.KeyboardDeviceObject->Acquire() == D_DI_OK )
+			DiagAcquire = InputSysData.PF.KeyboardDeviceObject->Acquire() ;
+			if( DiagAcquire == D_DI_OK )
 			{
 				hr = InputSysData.PF.KeyboardDeviceObject->GetDeviceState( sizeof( InputSysData.KeyInputBuf ) , ( LPVOID )InputSysData.KeyInputBuf ) ;
 				if( hr != D_DI_OK ) goto ENDFUNCTION ;
@@ -2491,6 +2523,8 @@ extern int UpdateKeyboardInputState_PF( int UseProcessMessage )
 	Result = 1 ;
 
 ENDFUNCTION:
+
+	KeyboardDiagLog( DiagBranch, DiagGetState, DiagAcquire ) ;
 
 	return Result ;
 }

@@ -1004,6 +1004,24 @@ int main(int argc, char** argv) {
 		if (++diagFrame % 60 == 0) {
 			ScreenDiag("frame %d procSelecter=%d windowModeFlag=%d skin=%dx%d",
 				diagFrame, gs.procSelecter, GetWindowModeFlag(), skinSizeX, skinSizeY);
+			char diagRawKeys[256]{};
+			const int diagKeyErr = GetHitKeyStateAll(diagRawKeys);
+			int diagRawDown = 0;
+			for (int i = 0; i < 0x100; i++) {
+				if (diagRawKeys[i]) diagRawDown++;
+			}
+			int diagIdDown = 0;
+			for (int i = 0; i < 0x200; i++) {
+				if (gs.KeyInput.inputID[i] == 1 || gs.KeyInput.inputID[i] == 2) diagIdDown++;
+			}
+			const HWND diagForeground = GetForegroundWindow();
+			const HWND diagActive = GetActiveWindow();
+			const HWND diagMain = GetMainWindowHandle();
+			ScreenDiag("  keys: err=%d rawDown=%d idDown=%d focus=%d active=%d searchFocused=%d fg=%p act=%p main=%p",
+				diagKeyErr, diagRawDown, diagIdDown,
+				diagForeground == diagMain ? 1 : 0, diagActive == diagMain ? 1 : 0,
+				gs.sSelect.searchFocused,
+				static_cast<void*>(diagForeground), static_cast<void*>(diagActive), static_cast<void*>(diagMain));
 		}
 
 		if (GetWindowModeFlag()) { // windowed
