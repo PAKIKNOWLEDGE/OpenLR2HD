@@ -1,8 +1,8 @@
-// -------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------
 // 
 // 		ＤＸライブラリ		非同期読み込み処理プログラム
 // 
-// 				Ver 3.25a
+// 				Ver 3.24f
 // 
 // -------------------------------------------------------------------------------
 
@@ -199,7 +199,7 @@ extern int CloseASyncLoadThread( void )
 	GASyncLoadData.ThreadEndRequestFlag = TRUE ;
 
 	AInfo = GASyncLoadData.Thread ;
-	for( i = 0 ; i < GASyncLoadData.ThreadNum + 1 ; i ++, AInfo ++ )
+	for( i = 0 ; i < GASyncLoadData.ThreadNum ; i ++, AInfo ++ )
 	{
 		if( Thread_IsValid( &AInfo->ThreadInfo ) != 0 )
 		{
@@ -982,20 +982,9 @@ extern int ResumeASyncLoadThread( int AddMaxThreadNum )
 			}
 		}
 
-		// それも無かった場合
+		// それも無かったらスレッドを起こすのを断念する
 		if( SelectNo == -1 )
-		{
-			// 非同期読み込み処理スレッド閉じ待中ではない場合はスレッドを起こすのを断念する
-			if( GASyncLoadData.ThreadEndRequestFlag == FALSE )
-			{
-				break ;
-			}
-			else
-			{
-				// 非同期読み込み処理スレッド閉じ中の場合はメインスレッド依頼の非同期読み込みデータを処理する専用のスレッドを起こす
-				SelectNo = GASyncLoadData.ThreadNum ;
-			}
-		}
+			break ;
 
 		// 起こす
 		AInfo = &GASyncLoadData.Thread[ SelectNo ] ;
