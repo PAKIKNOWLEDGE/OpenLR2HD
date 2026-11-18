@@ -2655,6 +2655,17 @@ int main(int argc, char** argv) {
 			ScreenDiag("screenModeChange: ApplyScreenMode enter");
 			ApplyScreenMode(gs.config.system.screenmode);
 			ScreenDiag("screenModeChange: ApplyScreenMode returned");
+			if (gs.config.system.screenmode == 1) {
+				int wx = 0, wy = 0, ww = 0, wh = 0;
+				GetWindowPosition(&wx, &wy);
+				GetWindowSize(&ww, &wh);
+				ScreenDiag("screenModeChange: windowed pos=(%d,%d) size=%dx%d, reapplying graph mode", wx, wy, ww, wh);
+				SetGraphMode(resX, resY, (gs.config.system.highcolor == 0 ? 32 : 16), GetRefreshRate());
+				GetWindowPosition(&wx, &wy);
+				GetWindowSize(&ww, &wh);
+				ScreenDiag("screenModeChange: graph mode reapplied pos=(%d,%d) size=%dx%d windowModeFlag=%d",
+					wx, wy, ww, wh, GetWindowModeFlag());
+			}
 			SetWaitVSyncFlag(0); //VSYNC
 			SetDrawScreen(DX_SCREEN_BACK);
 			for (int i = 0; i < 900; i++) {
@@ -2671,6 +2682,7 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
 			SetForegroundWindow(GetMainWindowHandle()); // restore OS focus so the cursor isn't frozen after leaving exclusive
 #endif // _WIN32
+			ScreenDiag("screenModeChange: LoadSceneG and focus restore done, windowModeFlag=%d", GetWindowModeFlag());
 			gs.KeyInput.mouse_buttonL = 0; // consume the click so the transition can't re-trigger the screen-mode toggle
 			gs.is_clicked_screenModeChange = 0;
 			SetObjectStrings_SongSelect(&gs);
